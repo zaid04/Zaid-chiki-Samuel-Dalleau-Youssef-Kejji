@@ -6,6 +6,7 @@ import PatientDetails from './pages/PatientDetails';
 import Protected from './components/Protected';
 
 export default function App() {
+
   return (
     <Routes>
       <Route path="/" element={<Home />} />
@@ -32,5 +33,6 @@ export default function App() {
       {/* catch‑all : redirige vers / */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    
   );
 }
