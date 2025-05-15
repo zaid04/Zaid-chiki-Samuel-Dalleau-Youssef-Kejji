@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
-import api from '../services/api';
+import { useEffect, useState, useContext } from 'react';
 import { Link } from 'react-router-dom';
+import api from '../services/api';
+import { AuthCtx } from '../contexts/AuthContext';
+import LogoutButton from './logoutbtn';
 
 type Person = { id: number; firstname: string; lastname: string };
 
@@ -8,6 +10,8 @@ export default function Patients() {
   const [patients, setPatients] = useState<Person[]>([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
+
+  const { auth } = useContext(AuthCtx); // récupération de l'auth
 
   useEffect(() => {
     api
@@ -17,15 +21,23 @@ export default function Patients() {
   }, []);
 
   const filtered = patients.filter(p =>
-    `${p.firstname} ${p.lastname}`
-      .toLowerCase()
-      .includes(query.toLowerCase()),
+    `${p.firstname} ${p.lastname}`.toLowerCase().includes(query.toLowerCase()),
   );
 
   if (loading) return <p className="p-4">Chargement…</p>;
 
   return (
     <div className="mx-auto max-w-xl p-4">
+      {/* Affichage de l'email de l'utilisateur connecté et bouton déconnexion */}
+      {auth && (
+        <div className="mb-4 flex justify-between items-center rounded bg-blue-50 p-3 text-sm text-blue-800 shadow-sm">
+          <p>
+            👋 <strong>Bienvenue</strong>, <strong>{auth.email}</strong> !
+          </p>
+          <LogoutButton />
+        </div>
+      )}
+
       <h1 className="mb-4 text-2xl font-semibold">Patients</h1>
 
       <input
