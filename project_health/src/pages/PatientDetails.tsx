@@ -26,7 +26,7 @@ type Person = {
 };
 
 type Physio = { date: string; weight: number };
-type Activity = { date: string; steps: number };
+type Activity = { date: string; steps: number ; numberOfSteps: number ; duration:number ; consumedCalories:number};
 type Psychic = { date: string; mood_score: number };
 
 interface Merged {
@@ -96,6 +96,11 @@ export default function PatientDetails() {
     mood: psychic.find((s) => s.date === p.date)?.mood_score ?? null,
   }));
 
+  const totalSteps = activities.reduce((sum, a) => sum + (a.numberOfSteps || 0), 0);
+  const totalDuration = activities.reduce((sum, a) => sum + (a.duration || 0), 0);
+  const totalCalories = activities.reduce((sum, a) => sum + (a.consumedCalories || 0), 0);
+
+
   const displayName = person ? `${person.firstname} ${person.lastname}` : `#${id}`;
 
   return (
@@ -124,7 +129,7 @@ export default function PatientDetails() {
           {person.activityProfile && <p>Profil d’activité : {person.activityProfile}</p>}
           {person.weightGoal && person.weightStart && person.weightStart > person.weightGoal && (
             <p className="text-red-600 font-medium">
-              ⚠ Le poids de départ est supérieur à l’objectif.
+              ⚠ Le poids actuel est supérieur à l’objectif.
             </p>
           )}
           {person.weightGoal && person.weightStart && person.weightStart <= person.weightGoal && (
@@ -134,6 +139,14 @@ export default function PatientDetails() {
           )}
         </div>
       )}
+
+      {/*Activitées physique*/}
+      <div className="mb-6 text-gray-700 space-y-2">
+        <h2 className="text-secondary font-semibold">Activitées physique</h2>
+        <p>Total des pas : {totalSteps}</p>
+        <p>Durée totale : {totalDuration} min</p>
+        <p>Calories brûlées : {totalCalories} kcal</p>
+      </div>
 
       {/* Graphiques */}
       <div className="w-full h-80">
