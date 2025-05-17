@@ -99,7 +99,7 @@ export default function PatientDetails() {
   const displayName = person ? `${person.firstname} ${person.lastname}` : `#${id}`;
 
   return (
-    <div className="mx-auto max-w-6xl p-4">
+    <div className="border-l-4 border-green-400 pl-4 bg-green-50 rounded-md mb-6">
       <Link
         to="/patients"
         className="mb-4 inline-block text-blue-600 hover:underline"
@@ -107,7 +107,7 @@ export default function PatientDetails() {
         ← Retour à la liste
       </Link>
 
-      <h1 className="mb-6 text-2xl font-bold text-blue-800 border-b pb-2 flex items-center gap-2">
+      <h1 className="text-primary">
         <span className="text-3xl">👤</span>
         Fiche patient&nbsp;<span className="text-gray-900">{displayName}</span>
       </h1>
@@ -122,6 +122,16 @@ export default function PatientDetails() {
           {person.bmiStart && <p>IMC de départ : {person.bmiStart}</p>}
           {person.bmiGoal && <p>Objectif IMC : {person.bmiGoal}</p>}
           {person.activityProfile && <p>Profil d’activité : {person.activityProfile}</p>}
+          {person.weightGoal && person.weightStart && person.weightStart > person.weightGoal && (
+            <p className="text-red-600 font-medium">
+              ⚠ Le poids de départ est supérieur à l’objectif.
+            </p>
+          )}
+          {person.weightGoal && person.weightStart && person.weightStart <= person.weightGoal && (
+            <p className="text-green-600 font-medium">
+              L'objectif de poid est atteint !
+            </p>
+          )}
         </div>
       )}
 
@@ -136,21 +146,27 @@ export default function PatientDetails() {
             <Line
               type="monotone"
               dataKey="poids"
+              stroke="#34D399" // vert clair (tailwind green-400)
               strokeWidth={2}
               name="Poids (kg)"
+              dot={{ r: 4 }}
             />
             <Line
               type="monotone"
               dataKey="pas"
+              stroke="#FBBF24" // jaune (tailwind yellow-400)
               strokeDasharray="4 4"
               name="Pas"
+              dot={{ r: 4 }}
             />
             {merged.some((m) => m.mood !== null) && (
               <Line
                 type="monotone"
                 dataKey="mood"
+                stroke="#F87171" // rouge clair (tailwind red-400)
                 strokeDasharray="2 2"
                 name="Humeur"
+                dot={{ r: 4 }}
               />
             )}
           </LineChart>
