@@ -3,7 +3,7 @@ import { useContext, useState } from 'react';
 import { AuthCtx } from '../contexts/AuthContext';
 import api, { setAuthToken } from '../services/api';
 import { useNavigate } from 'react-router-dom';
-import axios, { AxiosError } from 'axios';          // ←  ajout
+import axios, { AxiosError } from 'axios';
 
 type FormData = {
   email: string;
@@ -31,8 +31,8 @@ export default function Login() {
       setAuth(auth);
 
       nav('/patients');
-    } catch (err: unknown) {                      // ← plus de any
-      const error = err as AxiosError;           // cast en AxiosError
+    } catch (err: unknown) {
+      const error = err as AxiosError;
       if (axios.isAxiosError(error) && error.response?.status === 401) {
         setErrorMsg('Identifiants incorrects.');
       } else {
@@ -47,22 +47,24 @@ export default function Login() {
     <div className="flex h-screen items-center justify-center bg-slate-50">
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="w-80 rounded bg-white p-6 shadow-md"
+        className="w-80 rounded-lg bg-white p-6 shadow-lg border border-green-200"
       >
-        <h1 className="mb-4 text-center text-2xl font-semibold">Connexion</h1>
+        <h1 className="mb-4 text-center text-3xl font-bold text-green-600">
+          Connexion
+        </h1>
 
         <input
           {...register('email', { required: true })}
           type="email"
           placeholder="Email"
-          className="mb-3 w-full rounded border p-2"
+          className="mb-3 w-full rounded border border-green-300 p-2 focus:outline-none focus:ring-2 focus:ring-green-300"
         />
 
         <input
           {...register('password', { required: true })}
           type="password"
           placeholder="Mot de passe"
-          className="mb-4 w-full rounded border p-2"
+          className="mb-4 w-full rounded border border-green-300 p-2 focus:outline-none focus:ring-2 focus:ring-green-300"
         />
 
         {errorMsg && (
@@ -73,7 +75,7 @@ export default function Login() {
 
         <button
           disabled={loading}
-          className="w-full rounded bg-blue-600 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+          className="w-full rounded bg-green-400 py-2 text-white font-semibold shadow hover:bg-green-500 transition disabled:opacity-50"
         >
           {loading ? 'Connexion…' : 'Se connecter'}
         </button>
