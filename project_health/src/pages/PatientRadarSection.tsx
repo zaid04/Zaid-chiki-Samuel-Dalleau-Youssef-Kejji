@@ -36,13 +36,13 @@ export default function PatientRadarSection() {
   // --- Conseils selon IMC ---
   let imcAdvice = ''
   if (lastImc < 18.5) {
-    imcAdvice = 'Votre IMC est bas : pensez à enrichir votre alimentation (protéines, bonnes graisses).'
+    imcAdvice =  'Objectif très loin : privilégiez des exercices cardio (marche rapide, vélo).'
   } else if (lastImc < 25) {
-    imcAdvice = 'Votre IMC est dans la norme : maintenez votre équilibre avec une activité modérée.'
+    imcAdvice = 'Objectif encore assez loin : consultez un professionnel et augmentez progressivement votre activité physique.'
   } else if (lastImc < 30) {
-    imcAdvice = 'IMC en surcharge pondérale : privilégiez des exercices cardio (marche rapide, vélo).'
+    imcAdvice = 'Votre objectif est proche ! : Continuez vos efforts'
   } else {
-    imcAdvice = 'IMC élevé : consultez un professionnel et augmentez progressivement votre activité physique.'
+    imcAdvice = 'Votre objectif est très proche ! : Vous y êtes presque !'
   }
 
   // --- Conseils selon activité ---
@@ -111,7 +111,7 @@ export default function PatientRadarSection() {
       <Card>
         <h3 className="text-lg font-semibold mb-4">Conseils Personnalisés</h3>
         <ul className="list-disc pl-5 space-y-3 text-gray-700 dark:text-gray-300">
-          <li><strong>IMC :</strong> {imcAdvice}</li>
+          <li><strong>Objectif :</strong> {imcAdvice}</li>
           <li><strong>Activité :</strong> {actAdvice}</li>
           <li><strong>Émotion :</strong> {moodAdvice}</li>
         </ul>

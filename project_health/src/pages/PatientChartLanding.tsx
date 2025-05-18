@@ -1,7 +1,6 @@
 // src/pages/PatientChartLanding.tsx
 import { useOutletContext, Link } from 'react-router-dom'
 import Card from '../components/Card'
-import PatientRadar from '../components/PatientRadar'
 import CoachPredictif from '../components/CoachPredictif'
 import SyntheseHebdomadaire from '../components/SyntheseHebdomadaire'
 import AffichageBadges from '../components/AffichageBadges'
@@ -64,50 +63,6 @@ export default function PatientChartLanding() {
     avgMood >= 5 ? '🙂' :
     avgMood >= 3 ? '😐' :
     '😞'
-
-  // ------ Préparation radarData (IMC brut vs objectif) -------
-
-  // 1) Calcul IMC actuel
-  const heightM = (person.height ?? 0) / 100
-  const lastEntry = mergedData.slice().reverse().find(d => d.poids !== null)
-  const lastImc = lastEntry && heightM > 0
-    ? lastEntry.poids! / (heightM * heightM)
-    : 0
-
-  // 2) Moyenne pas & calories
-  const recentActs = activities.slice(-10)
-  const avgSteps = recentActs.length
-    ? recentActs.reduce((s, a) => s + a.numberOfSteps, 0) / recentActs.length
-    : 0
-  const avgCal2 = recentActs.length
-    ? recentActs.reduce((s, a) => s + a.consumedCalories, 0) / recentActs.length
-    : 0
-
-  // 3) Moyenne humeur brute (0–10)
-  const recentMoods = psychic.slice(-10)
-  const avgMood10 = recentMoods.length
-    ? recentMoods.reduce((s, p) => s + p.mood_score, 0) / recentMoods.length
-    : 0
-
-  const radarData = {
-    imc: lastImc,
-    objectifImc: Number(person.bmiGoal) || lastImc,
-    pasMoyens: avgSteps,
-    objectifPas: (() => {
-      const goals: Record<string, number> = {
-        sedentary: 3000,
-        light:     5000,
-        active:    10000,
-        athlete:   15000,
-      }
-      return goals[person.activityProfile ?? ''] ?? 7000
-    })(),
-    caloriesBrulees: avgCal2,
-    objectifCalories: 1000,
-    etatPsy: avgMood10,
-  }
-
-  // -------------------------------------
 
   // Forward-fill + normalisation pour le linechart
   let lw = mergedData.find(d => d.poids !== null)?.poids ?? 0
@@ -194,36 +149,46 @@ export default function PatientChartLanding() {
         <div className="w-full h-64 sm:h-80">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={normalized} margin={{ top:10, right:20, bottom:30, left:0 }}>
-              <XAxis dataKey="date"
-                     tick={{ fontSize:12, fill:'#6B7280' }}
-                     angle={-45} textAnchor="end"
-                     height={60}
-                     interval="preserveStartEnd" />
-              <YAxis domain={[0,1]}
-                     tickFormatter={v => `${Math.round(v*100)}%`}
-                     tick={{ fill:'#6B7280' }} />
-              <Tooltip formatter={(v:number) => `${(v*100).toFixed(1)}%`}
-                       contentStyle={{ background:'#fff', borderRadius:8 }} />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize:12, fill:'#6B7280' }}
+                angle={-45}
+                textAnchor="end"
+                height={60}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                domain={[0,1]}
+                tickFormatter={v => `${Math.round(v*100)}%`}
+                tick={{ fill:'#6B7280' }}
+              />
+              <Tooltip
+                formatter={(v: number) => `${(v*100).toFixed(1)}%`}
+                contentStyle={{ background:'#fff', borderRadius:8 }}
+              />
               <Legend verticalAlign="top" />
-              <Line type="monotone" dataKey="poidsNorm" name="Poids"   stroke="#3B82F6" dot={false} connectNulls />
-              <Line type="monotone" dataKey="pasNorm"   name="Pas"     stroke="#10B981" dot={false} connectNulls />
+              <Line
+                type="monotone"
+                dataKey="poidsNorm"
+                name="Poids"
+                stroke="#3B82F6"
+                dot={false}
+                connectNulls
+              />
+              <Line
+                type="monotone"
+                dataKey="pasNorm"
+                name="Pas"
+                stroke="#10B981"
+                dot={false}
+                connectNulls
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
       </Card>
 
-      {/* Radar & Emoji */}
-      <Card>
-        <h3 className="text-lg font-semibold mb-4">Vue synthétique</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-          <div className="text-6xl text-center">{overallEmoji}</div>
-          <div className="w-full h-80">
-            <PatientRadar data={radarData} />
-          </div>
-        </div>
-      </Card>
-
-      {/* Innovations premium */}
+      {/* Carte innovations premium */}
       <section>
         <h2 className="text-2xl font-semibold">Nouveaux services</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
