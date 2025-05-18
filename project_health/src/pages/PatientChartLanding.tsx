@@ -33,6 +33,7 @@ export default function PatientChartLanding() {
       weightGoal?: number
       bmiStart?: string
       bmiGoal?: string
+      activityProfile?: string
     }
     mergedData: { date: string; poids: number | null; pas: number; mood: number | null }[]
     activities: { numberOfSteps: number; duration: number; consumedCalories: number }[]
@@ -64,45 +65,46 @@ export default function PatientChartLanding() {
     avgMood >= 3 ? '😐' :
     '😞'
 
-  // ------ Préparation radarData -------
+  // ------ Préparation radarData (IMC brut vs objectif) -------
 
-  // 1) Progrès BMI
+  // 1) Calcul IMC actuel
   const heightM = (person.height ?? 0) / 100
   const lastEntry = mergedData.slice().reverse().find(d => d.poids !== null)
-  const currentBMI = lastEntry && heightM > 0
+  const lastImc = lastEntry && heightM > 0
     ? lastEntry.poids! / (heightM * heightM)
     : 0
-  const targetBMI = Number(person.bmiGoal) || currentBMI
-  const bmiProgress = targetBMI !== 0
-    ? 1 - Math.abs(currentBMI - targetBMI) / targetBMI
-    : 1
 
-  // 2) Activité moyenne (10 derniers)
+  // 2) Moyenne pas & calories
   const recentActs = activities.slice(-10)
   const avgSteps = recentActs.length
     ? recentActs.reduce((s, a) => s + a.numberOfSteps, 0) / recentActs.length
     : 0
-
-  // 3) Calories moyennes (10 derniers)
   const avgCal2 = recentActs.length
     ? recentActs.reduce((s, a) => s + a.consumedCalories, 0) / recentActs.length
     : 0
 
-  // 4) Humeur moyenne (10 derniers)
+  // 3) Moyenne humeur brute (0–10)
   const recentMoods = psychic.slice(-10)
   const avgMood10 = recentMoods.length
     ? recentMoods.reduce((s, p) => s + p.mood_score, 0) / recentMoods.length
     : 0
 
-  // Compose l'objet attendu par <PatientRadar/>
   const radarData = {
-    bmiProgress,           // 0→1
-    objectifProgress: 1,   // toujours 1
+    imc: lastImc,
+    objectifImc: Number(person.bmiGoal) || lastImc,
     pasMoyens: avgSteps,
-    objectifPas: 2000,
+    objectifPas: (() => {
+      const goals: Record<string, number> = {
+        sedentary: 3000,
+        light:     5000,
+        active:    10000,
+        athlete:   15000,
+      }
+      return goals[person.activityProfile ?? ''] ?? 7000
+    })(),
     caloriesBrulees: avgCal2,
     objectifCalories: 1000,
-    etatPsy: avgMood10 / 10,// 0→1
+    etatPsy: avgMood10,
   }
 
   // -------------------------------------
@@ -120,8 +122,8 @@ export default function PatientChartLanding() {
   const maxPas = Math.max(...ffill.map(d => d.pas))
   const normalized = ffill.map(d => ({
     date:      d.date,
-    poidsNorm: maxW>minW ? (d.poids-minW)/(maxW-minW) : 0,
-    pasNorm:   maxPas>0  ? d.pas/maxPas          : 0,
+    poidsNorm: maxW > minW ? (d.poids - minW) / (maxW - minW) : 0,
+    pasNorm:   maxPas > 0  ? d.pas / maxPas        : 0,
   }))
 
   return (
