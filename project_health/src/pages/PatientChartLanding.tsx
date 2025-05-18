@@ -29,30 +29,30 @@ export default function PatientChartLanding() {
       bmiStart?: string
       bmiGoal?: string
     }
-    mergedData: { date: string; poids: number | null; pas: number | null; mood: number | null }[]
+    mergedData: { date: string; poids: number | null; pas: number; mood: number | null }[]
     activities: { numberOfSteps: number; duration: number; consumedCalories: number }[]
     psychic: { date: string; mood_score: number; feeling: string }[]
   }>()
 
-  // Âge
+  // --- En-tête patient ---
   const age = person.birthyear
     ? new Date().getFullYear() - person.birthyear
     : '-'
 
-  // Stats globales
-  const totalSteps = activities.reduce((s, a) => s + a.numberOfSteps, 0)
-  const totalDur = activities.reduce((s, a) => s + a.duration, 0)
-  const totalCal = activities.reduce((s, a) => s + a.consumedCalories, 0)
+  // --- Statistiques globales ---
+  const totalSteps = activities.reduce((sum, a) => sum + a.numberOfSteps, 0)
+  const totalDur   = activities.reduce((sum, a) => sum + a.duration, 0)
+  const totalCal   = activities.reduce((sum, a) => sum + a.consumedCalories, 0)
 
-  // Données émotionnelles filtrées
+  // --- Données émotionnelles pour mini-graph ---
   const emoData = mergedData
     .filter(d => d.mood !== null)
     .map(d => ({ date: d.date, score: d.mood! }))
 
-  // Calcul du smiley global
+  // --- Smiley global ---
   const avgMood =
     emoData.length > 0
-      ? emoData.reduce((sum, d) => sum + d.score, 0) / emoData.length
+      ? emoData.reduce((sum, e) => sum + e.score, 0) / emoData.length
       : 0
   const overallEmoji =
     avgMood >= 8 ? '😊' :
@@ -60,14 +60,19 @@ export default function PatientChartLanding() {
     avgMood >= 3 ? '😐' :
     '😞'
 
-  // Données radar
-  const latest = mergedData.slice().reverse()[0]
-  const imc = (latest.poids !== null && person.height)
+  // --- Données pour le radar ---
+  const latest = mergedData.slice().reverse()[0] || { poids: 0 }
+  const imc = person.height && latest.poids !== null
     ? latest.poids / ((person.height / 100) ** 2)
     : 0
   const recentActs = activities.slice(-10)
-  const avgSteps = recentActs.reduce((s, a) => s + a.numberOfSteps, 0) / (recentActs.length || 1)
-  const avgCal2 = recentActs.reduce((s, a) => s + a.consumedCalories, 0) / (recentActs.length || 1)
+  const avgSteps = recentActs.length
+    ? recentActs.reduce((s, a) => s + a.numberOfSteps, 0) / recentActs.length
+    : 0
+  const avgCal2 = recentActs.length
+    ? recentActs.reduce((s, a) => s + a.consumedCalories, 0) / recentActs.length
+    : 0
+
   const radarData = {
     imc,
     objectifImc: Number(person.bmiGoal) || 25,
@@ -78,9 +83,38 @@ export default function PatientChartLanding() {
     etatPsy: avgMood,
   }
 
+  // --- Forward-fill pour poids & humeur ---
+  // Initialise avec le premier non-nul
+  let lastWeight = mergedData.find(d => d.poids !== null)?.poids ?? 0
+  let lastMood   = mergedData.find(d => d.mood !== null)?.mood ?? 0
+
+  const ffillData = mergedData.map(d => {
+    if (d.poids !== null) lastWeight = d.poids
+    if (d.mood  !== null) lastMood   = d.mood
+    return {
+      date:    d.date,
+      poids:   lastWeight,
+      pas:     d.pas,
+      mood:    lastMood,
+    }
+  })
+
+  // --- Normalisation (min-max pour poids, max pour pas, /10 pour humeur) ---
+  const weights = ffillData.map(d => d.poids)
+  const minW = Math.min(...weights)
+  const maxW = Math.max(...weights)
+  const maxPas = Math.max(...ffillData.map(d => d.pas))
+
+  const normalized = ffillData.map(d => ({
+    date:     d.date,
+    poidsNorm: maxW > minW ? (d.poids - minW) / (maxW - minW) : 0,
+    pasNorm:  maxPas > 0 ? d.pas / maxPas : 0,
+    moodNorm: d.mood / 10,
+  }))
+
   return (
     <div className="space-y-8">
-      {/* Fil d’Ariane */}
+      {/* Breadcrumb */}
       <nav className="text-sm text-gray-500 dark:text-gray-400 flex gap-2">
         <Link to="/patients" className="hover:underline">← Patients</Link>
         <span>/ Dashboard</span>
@@ -121,7 +155,7 @@ export default function PatientChartLanding() {
         </div>
       </Card>
 
-      {/* Statistiques globales */}
+      {/* Stats globales */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: 'Pas total', value: `${Math.round(totalSteps/1000)}k`, icon: '👟' },
@@ -140,11 +174,14 @@ export default function PatientChartLanding() {
         ))}
       </div>
 
-      {/* Graphique Poids / Pas / Humeur */}
+      {/* Courbes normalisées Poids / Pas / Humeur */}
       <Card>
         <div className="w-full h-64 sm:h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={mergedData} margin={{ top: 10, right: 20, bottom: 30, left: 0 }}>
+            <LineChart
+              data={normalized}
+              margin={{ top: 10, right: 20, bottom: 30, left: 0 }}
+            >
               <XAxis
                 dataKey="date"
                 tick={{ fontSize: 12, fill: '#6B7280' }}
@@ -153,12 +190,40 @@ export default function PatientChartLanding() {
                 height={50}
                 interval="preserveStartEnd"
               />
-              <YAxis tick={{ fill: '#6B7280' }} />
-              <Tooltip contentStyle={{ background: '#fff', borderRadius: 8 }} />
+              <YAxis
+                domain={[0, 1]}
+                tickFormatter={v => `${Math.round(v * 100)}%`}
+                tick={{ fill: '#6B7280' }}
+              />
+              <Tooltip
+                formatter={(v: number) => `${(v * 100).toFixed(1)}%`}
+                contentStyle={{ background: '#fff', borderRadius: 8 }}
+              />
               <Legend verticalAlign="top" />
-              <Line dataKey="poids" name="Poids" stroke="#3B82F6" dot={false} />
-              <Line dataKey="pas" name="Pas" stroke="#10B981" dot={false} />
-              <Line dataKey="mood" name="Humeur" stroke="#F59E0B" dot={false} />
+              <Line
+                type="monotone"
+                dataKey="poidsNorm"
+                name="Poids"
+                stroke="#3B82F6"
+                dot={false}
+                connectNulls
+              />
+              <Line
+                type="monotone"
+                dataKey="pasNorm"
+                name="Pas"
+                stroke="#10B981"
+                dot={false}
+                connectNulls
+              />
+              <Line
+                type="monotone"
+                dataKey="moodNorm"
+                name="Humeur"
+                stroke="#F59E0B"
+                dot={false}
+                connectNulls
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -169,7 +234,10 @@ export default function PatientChartLanding() {
         <h3 className="text-lg font-semibold mb-4">Suivi émotionnel</h3>
         <div className="w-full h-48">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={emoData} margin={{ top: 10, right: 20, bottom: 30, left: 0 }}>
+            <LineChart
+              data={emoData}
+              margin={{ top: 10, right: 20, bottom: 30, left: 0 }}
+            >
               <XAxis
                 dataKey="date"
                 tick={{ fontSize: 12, fill: '#6B7280' }}
@@ -180,17 +248,24 @@ export default function PatientChartLanding() {
               />
               <YAxis domain={[0, 10]} tick={{ fill: '#6B7280' }} ticks={[0, 2, 4, 6, 8, 10]} />
               <Tooltip
-                formatter={(v: number) => `${v}/10`}
-                labelFormatter={l => new Date(l).toLocaleDateString('fr-FR')}
+                formatter={(value: number) => `${value}/10`}
+                labelFormatter={label => new Date(label).toLocaleDateString('fr-FR')}
                 contentStyle={{ background: '#fff', borderRadius: 8 }}
               />
-              <Line dataKey="score" stroke="#F59E0B" strokeWidth={2} dot={{ r: 4 }} />
+              <Line
+                type="monotone"
+                dataKey="score"
+                stroke="#F59E0B"
+                strokeWidth={2}
+                dot={{ r: 4 }}
+                connectNulls
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
       </Card>
 
-      {/* Vue synthétique (Radar + Emoji) */}
+      {/* Vue synthétique */}
       <Card>
         <h3 className="text-lg font-semibold mb-4">Vue synthétique</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
