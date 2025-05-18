@@ -52,17 +52,23 @@ export default function PatientRadar({ data }: { data: {
     },
     {
       subject: 'Calories absorbées',
-      value: data.caloriesAbsorbees ? normalize(data.caloriesAbsorbees, 2000) : 0,
+      value: data.caloriesAbsorbees ? normalize(data.caloriesAbsorbees, 2000) : 5,
       objectif: MAX_SCORE,
       onClick: () => nav('/regime'),
     },
     {
       subject: 'État psycho',
-      value: data.etatPsy ?? 0,
+      value: data.etatPsy ?? 5,
       objectif: MAX_SCORE,
       onClick: () => nav('/detailpsychologique'),
     },
   ];
+
+  const imcScore = dataset.find(d => d.subject === 'IMC')?.value ?? 0;
+
+  let radarColor = '#22c55e'; // Vert
+  if (imcScore < 3) radarColor = '#ef4444'; // Rouge
+  else if (imcScore < 7) radarColor = '#facc15'; // Jaune
 
   return (
     <div className="relative w-full h-[400px]">
@@ -74,10 +80,10 @@ export default function PatientRadar({ data }: { data: {
           <Radar
             name="Actuel"
             dataKey="value"
-            stroke="#22c55e"
-            fill="#22c55e"
+            stroke={radarColor}
+            fill={radarColor}
             fillOpacity={0.6}
-          />
+            />
           <Radar
             name="Objectif"
             dataKey="objectif"
