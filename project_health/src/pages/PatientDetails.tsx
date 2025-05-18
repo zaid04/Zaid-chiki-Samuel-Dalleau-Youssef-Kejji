@@ -11,6 +11,8 @@ import {
   Legend,
 } from 'recharts';
 import { AxiosError } from 'axios';
+import PatientRadar from '../components/PatientRadar';
+
 
 type Person = {
   id: string; // UUID string
@@ -35,6 +37,7 @@ interface Merged {
   pas: number | null;
   mood: number | null;
 }
+
 
 export default function PatientDetails() {
   const { id } = useParams();
@@ -112,6 +115,42 @@ export default function PatientDetails() {
 
 
   const displayName = person ? `${person.firstname} ${person.lastname}` : `#${id}`;
+
+  const sortedActivities = [...activities]
+  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  .slice(0, 10);
+
+const pasMoyens =
+  sortedActivities.reduce((sum, a) => sum + (a.numberOfSteps || 0), 0) /
+  (sortedActivities.length || 1);
+
+const caloriesMoyennesBrulees =
+  sortedActivities.reduce((sum, a) => sum + (a.consumedCalories || 0), 0) /
+  (sortedActivities.length || 1);
+
+const latestPhysio = [...physio].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+const poidsActuel = latestPhysio?.weight ?? 50;
+const taille = (person?.height ?? 170) /100; 
+const imc = poidsActuel / (taille * taille);
+
+console.log("poids:", poidsActuel, "taille:", taille, "imc:", imc);
+console.log("total steps:", totalSteps, "moyenne:", pasMoyens);
+console.log("total calories:", totalCalories, "moyenne:", caloriesMoyennesBrulees);
+
+
+
+// Données pour le radar
+const radarData = {
+  imc,
+  objectifImc: Number(person?.bmiGoal) || 25,
+  pasMoyens: pasMoyens,
+  objectifPas: 2000,
+  caloriesBrulees: caloriesMoyennesBrulees,
+  objectifCalories: 1000,
+  caloriesAbsorbees: undefined, // Donnée manquante
+  etatPsy: undefined,
+};
+
 
   return (
     <div className="border-l-4 border-green-400 pl-4 bg-green-50 rounded-md mb-6">
@@ -206,6 +245,11 @@ export default function PatientDetails() {
     ))}
   </ul>
 </div>
+      {/*Radar*/}
+      <div className="p-4">
+        <h1 className="text-2xl font-bold mb-4">Vue synthétique du patient</h1>
+        <PatientRadar data={radarData} />
+      </div>
     </div>
   );
 }
