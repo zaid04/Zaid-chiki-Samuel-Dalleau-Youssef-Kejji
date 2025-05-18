@@ -1,13 +1,7 @@
 // src/components/CoachPredictif.tsx
 import React, { useMemo } from 'react'
+import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip, CartesianGrid } from 'recharts'
 import { useOutletContext } from 'react-router-dom'
-import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  Tooltip,
-} from 'recharts'
 
 type Donnee = {
   date: string
@@ -19,168 +13,109 @@ type Donnee = {
 export default function CoachPredictif() {
   const { mergedData } = useOutletContext<{ mergedData: Donnee[] }>()
 
-  // 1. Trier et extraire les 14 derniers jours
-  const data = useMemo(() => {
+  // 1) Garder les 14 derniers jours triés
+  const last14 = useMemo(() => {
     return [...mergedData]
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .slice(-14)
       .map(d => ({
-        date: d.date.slice(5), // MM-DD pour l'affichage
+        date: d.date.slice(5), // MM-DD
         pas: d.pas,
-        mood: d.mood ?? undefined,
-        poids: d.poids ?? undefined,
+        mood: d.mood,
+        poids: d.poids,
       }))
   }, [mergedData])
 
-  // 2. Séparation en deux périodes de 7 jours
-  const avant = data.slice(0, 7)
-  const apres = data.slice(7)
+  // 2) Forward‐fill mood et poids pour éviter les trous
+  let currMood = last14.find(d => d.mood != null)?.mood ?? 0
+  let currPoids = last14.find(d => d.poids != null)?.poids ?? 0
+  const data = last14.map(d => {
+    if (d.mood != null) currMood = d.mood
+    if (d.poids != null) currPoids = d.poids
+    return { date: d.date, pas: d.pas, mood: currMood, poids: currPoids }
+  })
 
-  // 3. Calcul des variations
-  const somme = (arr: number[]) => arr.reduce((s, v) => s + v, 0)
-  const pasAvant = somme(avant.map(d => d.pas))
-  const pasApres = somme(apres.map(d => d.pas))
-  const variationPas = pasAvant > 0 ? ((pasApres - pasAvant) / pasAvant) * 100 : 0
+  // 3) Séparer en deux semaines
+  const semaine1 = data.slice(0, 7)
+  const semaine2 = data.slice(7)
 
-  const moodAvant = avant.map(d => d.mood ?? 0)
-  const moodApres = apres.map(d => d.mood ?? 0)
   const avg = (arr: number[]) => arr.reduce((s, v) => s + v, 0) / (arr.length || 1)
-  const variationMood = ((avg(moodApres) - avg(moodAvant)) / (avg(moodAvant) || 1)) * 100
 
-  const poidsAvant = avant.map(d => d.poids ?? 0)
-  const poidsApres = apres.map(d => d.poids ?? 0)
-  const variationPoids =
-    poidsAvant[0] > 0
-      ? ((poidsApres[poidsApres.length - 1] - poidsAvant[0]) / poidsAvant[0]) * 100
-      : 0
+  const variationPas = semaine1.length
+    ? ((avg(semaine2.map(d => d.pas)) - avg(semaine1.map(d => d.pas))) / avg(semaine1.map(d => d.pas))) * 100
+    : 0
 
-  // 4. Génération des conseils
+  const variationMood = avg(semaine2.map(d => d.mood)) - avg(semaine1.map(d => d.mood))
+  const variationPoids = data.length
+    ? data[data.length - 1].poids - data[0].poids
+    : 0
+
+  // 4) Générer suggestions
   const conseils: string[] = []
+  if (variationPas > 10) conseils.push('👏 Vous avez augmenté vos pas de plus de 10% ! Continuez ainsi.')
+  else if (variationPas < -10) conseils.push('📉 Vos pas ont chuté : relancez-vous avec 500 pas supplémentaires par jour.')
+  else conseils.push('🚶 Pas stables : pourquoi ne pas tester un nouvel itinéraire cette semaine ?')
 
-  // Conseils pas
-  if (variationPas < -10) {
-    conseils.push(
-      'Votre activité physique a baissé de plus de 10% : essayez un défi de 7 000 pas/jour sur 3 jours.'
-    )
-  } else if (variationPas > 10) {
-    conseils.push('👏 Vous avez augmenté vos pas de plus de 10% ! Continuez sur cette lancée.')
-  } else {
-    conseils.push('Votre niveau de pas est stable : pourquoi ne pas tester une nouvelle balade ?')
-  }
+  if (variationMood > 1) conseils.push('😊 Votre humeur s’améliore : gardez vos routines positives.')
+  else if (variationMood < -1) conseils.push('😔 Humeur à la baisse : pause méditation ou respiration recommandée.')
+  else conseils.push('🙂 Humeur stable : continuez vos activités favorites.')
 
-  // Conseils humeur
-  if (variationMood < -10) {
-    conseils.push(
-      'Votre humeur a diminué : intégrez 5 minutes de méditation quotidienne ou une pause respiration.'
-    )
-  } else if (variationMood > 10) {
-    conseils.push('😊 Belle progression d’humeur ! Gardez vos bonnes habitudes.')
-  } else {
-    conseils.push('Humeur stable : variez vos activités pour stimuler votre bien-être.')
-  }
+  if (variationPoids < -0.5) conseils.push('⚖️ Perte de poids modérée : veillez à un apport calorique suffisant.')
+  else if (variationPoids > 0.5) conseils.push('🍎 Légère prise de poids : privilégiez protéines et réduisez les sucres simples.')
+  else conseils.push('⚖️ Poids stable : maintenez votre équilibre alimentaire et sportif.')
 
-  // Conseils poids
-  if (variationPoids > 2) {
-    conseils.push(
-      'Petit gain de poids détecté : privilégiez des repas riches en protéines et réduisez les sucres simples.'
-    )
-  } else if (variationPoids < -2) {
-    conseils.push('Vous avez perdu du poids : veillez à un apport calorique suffisant et équilibré.')
-  } else {
-    conseils.push('Poids stable : continuez votre routine actuelle pour maintenir cet équilibre.')
-  }
+  // Helper pour créer les mini‐graphiques
+  const renderSpark = (key: 'pas' | 'mood' | 'poids', color: string, unit = '') => (
+    <div className="w-full h-24">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 0, right: 10, bottom: 0, left: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.2} />
+          <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+          <Tooltip formatter={(v: number) => `${v}${unit}`} />
+          <Area
+            type="monotone"
+            dataKey={key}
+            stroke={color}
+            fill={color}
+            fillOpacity={0.3}
+            dot={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  )
 
   return (
-    <div className="bg-blue-50 dark:bg-blue-900 p-6 rounded-lg shadow-lg space-y-4">
-      <h3 className="text-xl font-bold">Coach Prédictif</h3>
+    <div className="bg-blue-50 dark:bg-blue-900 p-6 rounded-lg shadow space-y-4">
+      <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">Coach Prédictif</h3>
 
-      {/* Mini-graphique des pas */}
-      <div className="w-full h-28">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 0, right: 10, bottom: 0, left: 0 }}>
-            <defs>
-              <linearGradient id="gradPas" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10B981" stopOpacity={0.8}/>
-                <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-            <Tooltip formatter={(v: number) => v.toLocaleString() + ' pas'} />
-            <Area
-              type="monotone"
-              dataKey="pas"
-              stroke="#10B981"
-              fill="url(#gradPas)"
-              dot={false}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-      <p className="text-sm text-gray-700 dark:text-gray-300">
+      {/* Pas */}
+      {renderSpark('pas', '#10B981', ' pas')}
+      <p className="text-gray-700 dark:text-gray-300">
         Variation pas : <strong>{variationPas.toFixed(1)}%</strong>
       </p>
 
-      {/* Mini-graphique humeur */}
-      <div className="w-full h-28">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 0, right: 10, bottom: 0, left: 0 }}>
-            <defs>
-              <linearGradient id="gradMood" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.8}/>
-                <stop offset="95%" stopColor="#F59E0B" stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-            <Tooltip formatter={(v: number) => v.toFixed(1) + '/10'} />
-            <Area
-              type="monotone"
-              dataKey="mood"
-              stroke="#F59E0B"
-              fill="url(#gradMood)"
-              dot={false}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-      <p className="text-sm text-gray-700 dark:text-gray-300">
-        Variation humeur : <strong>{variationMood.toFixed(1)}%</strong>
+      {/* Humeur */}
+      {renderSpark('mood', '#F59E0B')}
+      <p className="text-gray-700 dark:text-gray-300">
+        Variation humeur : <strong>{variationMood >= 0 ? '+' : ''}{variationMood.toFixed(1)} pts</strong>
       </p>
 
-      {/* Mini-graphique poids */}
-      <div className="w-full h-28">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 0, right: 10, bottom: 0, left: 0 }}>
-            <defs>
-              <linearGradient id="gradPoids" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
-                <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-            <Tooltip formatter={(v: number) => v.toFixed(1) + ' kg'} />
-            <Area
-              type="monotone"
-              dataKey="poids"
-              stroke="#3B82F6"
-              fill="url(#gradPoids)"
-              dot={false}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-      <p className="text-sm text-gray-700 dark:text-gray-300">
-        Variation poids : <strong>{variationPoids.toFixed(1)}%</strong>
+      {/* Poids */}
+      {renderSpark('poids', '#3B82F6', ' kg')}
+      <p className="text-gray-700 dark:text-gray-300">
+        Variation poids : <strong>{variationPoids >= 0 ? '+' : ''}{variationPoids.toFixed(1)} kg</strong>
       </p>
 
-      {/* Suggestions */}
+      {/* Conseils */}
       <div className="bg-white dark:bg-gray-800 p-4 rounded-lg space-y-2">
-        <h4 className="font-semibold">Vos conseils personnalisés</h4>
-        <ul className="list-disc list-inside text-gray-800 dark:text-gray-200">
+        <h4 className="font-semibold text-gray-800 dark:text-gray-100">Vos conseils personnalisés</h4>
+        <ul className="list-disc list-inside text-gray-700 dark:text-gray-200">
           {conseils.map((c, i) => (
             <li key={i}>{c}</li>
           ))}
         </ul>
       </div>
     </div>
-)
+  )
 }
