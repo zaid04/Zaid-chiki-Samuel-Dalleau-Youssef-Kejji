@@ -1,3 +1,4 @@
+// src/pages/PatientRadarSection.tsx
 import { useOutletContext, Link } from 'react-router-dom';
 import PatientRadar from '../components/PatientRadar';
 
@@ -6,35 +7,40 @@ export default function PatientRadarSection() {
     person: { height?: number; bmiGoal?: string };
     physio: { date: string; weight: number }[];
     activities: { date: string; numberOfSteps: number; consumedCalories: number }[];
-    psychic: { date: string; mood_score: number; feeling: string }[];
+    psychic: { date: string; feeling: string; mood_score: number }[];
   }>();
 
-  const latest = [...physio].sort((a, b) => +new Date(b.date) - +new Date(a.date))[0];
+  // IMC
+  const latest = physio
+    .slice()
+    .sort((a, b) => +new Date(b.date) - +new Date(a.date))[0];
   const poids = latest?.weight ?? 0;
   const taille = (person.height ?? 170) / 100;
   const imc = poids / (taille * taille);
 
-  const last10 = [...psychic]
+  // 10 dernières humeurs
+  const last10 = psychic
+    .slice()
     .sort((a, b) => +new Date(b.date) - +new Date(a.date))
     .slice(0, 10);
-  const moodMap: Record<string, number> = {
-    hopeless: 0,
-    lazy: 2,
-    'losing motivation': 4,
-    enduring: 6,
-    addicted: 8,
-    motivated: 10,
-  };
   const etatPsy =
     last10.length > 0
-      ? last10.reduce((s, m) => s + (moodMap[m.feeling] || 0), 0) / last10.length
+      ? last10.reduce((sum, p) => sum + p.mood_score, 0) / last10.length
       : 0;
+  const overallEmoji =
+    etatPsy >= 8 ? '😊' : etatPsy >= 5 ? '🙂' : etatPsy >= 3 ? '😐' : '😞';
 
-  const recent = [...activities]
+  // moyennes activités (10 dernières)
+  const recentActs = activities
+    .slice()
     .sort((a, b) => +new Date(b.date) - +new Date(a.date))
     .slice(0, 10);
-  const avgSteps = recent.reduce((s, a) => s + a.numberOfSteps, 0) / (recent.length || 1);
-  const avgCal = recent.reduce((s, a) => s + a.consumedCalories, 0) / (recent.length || 1);
+  const avgSteps =
+    recentActs.reduce((s, a) => s + a.numberOfSteps, 0) /
+    (recentActs.length || 1);
+  const avgCal =
+    recentActs.reduce((s, a) => s + a.consumedCalories, 0) /
+    (recentActs.length || 1);
 
   const radarData = {
     imc,
@@ -58,8 +64,13 @@ export default function PatientRadarSection() {
         </Link>
       </nav>
 
-      <h2 className="text-2xl font-semibold text-gray-900">Vue synthétique du patient</h2>
+      <h2 className="text-2xl font-semibold text-gray-900 text-center">
+        Vue synthétique du patient
+      </h2>
+
+      <div className="text-center text-5xl">{overallEmoji}</div>
+
       <PatientRadar data={radarData} />
     </div>
-);
+  );
 }

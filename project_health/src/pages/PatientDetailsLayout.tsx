@@ -23,7 +23,7 @@ type Activity = {
   duration: number;
   consumedCalories: number;
 };
-type Psychic = { date: string; mood_score: number; feeling: string };
+type Psychic = { date: string; feeling: string; mood_score: number };
 type Merged = {
   date: string;
   poids: number | null;
@@ -64,10 +64,30 @@ export default function PatientDetailsLayout() {
           }),
         ]);
 
+        // personne
         if (personRes) setPerson(personRes.data.data);
+
+        // données physio & activités
         setPhysio(physRes.data.data);
         setActivities(actRes.data.data);
-        setPsychic(psyRes.data.data);
+
+        // mapping feeling → mood_score
+        const feelingMap: Record<string, number> = {
+          hopeless: 0,
+          lazy: 2,
+          'losing motivation': 4,
+          enduring: 6,
+          addicted: 8,
+          motivated: 10,
+        };
+        const psyRaw: { date: string; feeling: string }[] =
+          psyRes.data.data;
+        const psyWithScore: Psychic[] = psyRaw.map((p) => ({
+          date: p.date,
+          feeling: p.feeling,
+          mood_score: feelingMap[p.feeling] ?? 0,
+        }));
+        setPsychic(psyWithScore);
       } catch (err) {
         const msg =
           err instanceof AxiosError
@@ -86,12 +106,16 @@ export default function PatientDetailsLayout() {
     return (
       <div className="p-4 bg-red-50 text-red-600 rounded-lg">
         <p>❌ {error}</p>
-        <Link to="/patients" className="mt-2 inline-block text-blue-600 hover:underline">
+        <Link
+          to="/patients"
+          className="mt-2 inline-block text-blue-600 hover:underline"
+        >
           ← Retour aux patients
         </Link>
       </div>
     );
 
+  // fusion pour chart
   const mergedData: Merged[] = physio.map((p) => ({
     date: p.date,
     poids: p.weight,
@@ -99,5 +123,7 @@ export default function PatientDetailsLayout() {
     mood: psychic.find((s) => s.date === p.date)?.mood_score ?? null,
   }));
 
-  return <Outlet context={{ person, physio, activities, psychic, mergedData }} />;
+  return (
+    <Outlet context={{ person, physio, activities, psychic, mergedData }} />
+  );
 }
