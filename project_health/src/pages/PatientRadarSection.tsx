@@ -40,7 +40,7 @@ export default function PatientRadarSection() {
   } else if (lastImc < 25) {
     imcAdvice = 'Objectif encore assez loin : consultez un professionnel et augmentez progressivement votre activité physique.'
   } else if (lastImc < 30) {
-    imcAdvice = 'Votre objectif est proche ! : Continuez vos efforts'
+    imcAdvice = 'Votre objectif est proche ! : Continuez vos efforts '
   } else {
     imcAdvice = 'Votre objectif est très proche ! : Vous y êtes presque !'
   }
