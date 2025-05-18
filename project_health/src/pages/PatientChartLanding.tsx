@@ -49,7 +49,7 @@ export default function PatientChartLanding() {
   const totalDur   = activities.reduce((sum, a) => sum + a.duration, 0)
   const totalCal   = activities.reduce((sum, a) => sum + a.consumedCalories, 0)
 
-  // Prépare données émotionnelles pour innovations
+  // Prépare données émotionnelles
   const emoData = mergedData
     .filter(d => d.mood !== null)
     .map(d => ({ date: d.date, score: d.mood! }))
@@ -64,55 +64,69 @@ export default function PatientChartLanding() {
     avgMood >= 3 ? '😐' :
     '😞'
 
-  // Données pour le radar
-  const latest = mergedData.slice().reverse().find(d => d.poids !== null)
+  // ------ Préparation radarData -------
+
+  // 1) Progrès BMI
   const heightM = (person.height ?? 0) / 100
-  const lastImc = latest && heightM > 0
-    ? latest.poids! / (heightM * heightM)
+  const lastEntry = mergedData.slice().reverse().find(d => d.poids !== null)
+  const currentBMI = lastEntry && heightM > 0
+    ? lastEntry.poids! / (heightM * heightM)
     : 0
+  const targetBMI = Number(person.bmiGoal) || currentBMI
+  const bmiProgress = targetBMI !== 0
+    ? 1 - Math.abs(currentBMI - targetBMI) / targetBMI
+    : 1
+
+  // 2) Activité moyenne (10 derniers)
   const recentActs = activities.slice(-10)
   const avgSteps = recentActs.length
     ? recentActs.reduce((s, a) => s + a.numberOfSteps, 0) / recentActs.length
     : 0
+
+  // 3) Calories moyennes (10 derniers)
   const avgCal2 = recentActs.length
     ? recentActs.reduce((s, a) => s + a.consumedCalories, 0) / recentActs.length
     : 0
 
+  // 4) Humeur moyenne (10 derniers)
+  const recentMoods = psychic.slice(-10)
+  const avgMood10 = recentMoods.length
+    ? recentMoods.reduce((s, p) => s + p.mood_score, 0) / recentMoods.length
+    : 0
+
+  // Compose l'objet attendu par <PatientRadar/>
   const radarData = {
-    imc: lastImc,
-    objectifImc: Number(person.bmiGoal) || 25,
+    bmiProgress,           // 0→1
+    objectifProgress: 1,   // toujours 1
     pasMoyens: avgSteps,
     objectifPas: 2000,
     caloriesBrulees: avgCal2,
     objectifCalories: 1000,
-    etatPsy: avgMood,
+    etatPsy: avgMood10 / 10,// 0→1
   }
 
-  // Forward-fill poids & humeur
-  let lastWeight = mergedData.find(d => d.poids !== null)?.poids ?? 0
-  let lastMood   = mergedData.find(d => d.mood !== null)?.mood ?? 0
-  const ffillData = mergedData.map(d => {
-    if (d.poids !== null) lastWeight = d.poids
-    if (d.mood  !== null) lastMood   = d.mood
-    return { date: d.date, poids: lastWeight, pas: d.pas, mood: lastMood }
+  // -------------------------------------
+
+  // Forward-fill + normalisation pour le linechart
+  let lw = mergedData.find(d => d.poids !== null)?.poids ?? 0
+  let lm = mergedData.find(d => d.mood !== null)?.mood ?? 0
+  const ffill = mergedData.map(d => {
+    if (d.poids !== null) lw = d.poids
+    if (d.mood  !== null) lm = d.mood
+    return { date: d.date, poids: lw, pas: d.pas, mood: lm }
   })
-
-  // Normalisation
-  const weights = ffillData.map(d => d.poids)
-  const minW = Math.min(...weights)
-  const maxW = Math.max(...weights)
-  const maxPas = Math.max(...ffillData.map(d => d.pas))
-
-  const normalized = ffillData.map(d => ({
+  const minW = Math.min(...ffill.map(d => d.poids))
+  const maxW = Math.max(...ffill.map(d => d.poids))
+  const maxPas = Math.max(...ffill.map(d => d.pas))
+  const normalized = ffill.map(d => ({
     date:      d.date,
-    poidsNorm: maxW > minW ? (d.poids - minW) / (maxW - minW) : 0,
-    pasNorm:   maxPas > 0 ? d.pas / maxPas : 0,
-    moodNorm:  d.mood / 10,
+    poidsNorm: maxW>minW ? (d.poids-minW)/(maxW-minW) : 0,
+    pasNorm:   maxPas>0  ? d.pas/maxPas          : 0,
   }))
 
   return (
     <div className="space-y-8">
-      {/* Fil d’Ariane */}
+      {/* Breadcrumb */}
       <nav className="text-sm text-gray-500 dark:text-gray-400 flex gap-2">
         <Link to="/patients" className="hover:underline">← Patients</Link>
         <span>/ Dashboard</span>
@@ -172,52 +186,31 @@ export default function PatientChartLanding() {
         ))}
       </div>
 
-      {/* Graphique normalisé Poids / Pas (sans humeur) */}
+      {/* Évolution normalisée */}
       <Card>
         <h3 className="text-lg font-semibold mb-4">Évolution normalisée</h3>
         <div className="w-full h-64 sm:h-80">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={normalized} margin={{ top:10, right:20, bottom:30, left:0 }}>
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize:12, fill:'#6B7280' }}
-                angle={-45}
-                textAnchor="end"
-                height={60}
-                interval="preserveStartEnd"
-              />
-              <YAxis
-                domain={[0,1]}
-                tickFormatter={v => `${Math.round(v*100)}%`}
-                tick={{ fill:'#6B7280' }}
-              />
-              <Tooltip
-                formatter={(v:number) => `${(v*100).toFixed(1)}%`}
-                contentStyle={{ background:'#fff', borderRadius:8 }}
-              />
+              <XAxis dataKey="date"
+                     tick={{ fontSize:12, fill:'#6B7280' }}
+                     angle={-45} textAnchor="end"
+                     height={60}
+                     interval="preserveStartEnd" />
+              <YAxis domain={[0,1]}
+                     tickFormatter={v => `${Math.round(v*100)}%`}
+                     tick={{ fill:'#6B7280' }} />
+              <Tooltip formatter={(v:number) => `${(v*100).toFixed(1)}%`}
+                       contentStyle={{ background:'#fff', borderRadius:8 }} />
               <Legend verticalAlign="top" />
-              <Line
-                type="monotone"
-                dataKey="poidsNorm"
-                name="Poids (norm)"
-                stroke="#3B82F6"
-                dot={false}
-                connectNulls
-              />
-              <Line
-                type="monotone"
-                dataKey="pasNorm"
-                name="Pas (norm)"
-                stroke="#10B981"
-                dot={false}
-                connectNulls
-              />
+              <Line type="monotone" dataKey="poidsNorm" name="Poids"   stroke="#3B82F6" dot={false} connectNulls />
+              <Line type="monotone" dataKey="pasNorm"   name="Pas"     stroke="#10B981" dot={false} connectNulls />
             </LineChart>
           </ResponsiveContainer>
         </div>
       </Card>
 
-      {/* Radar et Smiley */}
+      {/* Radar & Emoji */}
       <Card>
         <h3 className="text-lg font-semibold mb-4">Vue synthétique</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
