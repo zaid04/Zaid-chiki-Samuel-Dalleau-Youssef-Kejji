@@ -1,5 +1,7 @@
 // src/pages/PatientChartLanding.tsx
-import { useOutletContext, Link } from 'react-router-dom';
+import { useOutletContext, Link } from 'react-router-dom'
+import Card from '../components/Card'
+import PatientRadar from '../components/PatientRadar'
 import {
   ResponsiveContainer,
   LineChart,
@@ -8,121 +10,196 @@ import {
   YAxis,
   Tooltip,
   Legend,
-} from 'recharts';
-
-// Helper pour afficher le libellé du profil d'activité
-const getActivityProfileLabel = (profile?: string) => {
-  const profiles: Record<string, string> = {
-    sedentary: 'Sédentaire',
-    light: 'Légèrement actif',
-    active: 'Actif',
-    athlete: 'Athlète',
-  };
-  return profile ? profiles[profile] || profile : '-';
-};
+} from 'recharts'
 
 export default function PatientChartLanding() {
-  const { 
+  const {
     person,
-    mergedData
+    mergedData,
+    activities,
+    psychic,
   } = useOutletContext<{
     person: {
-      firstname: string;
-      lastname: string;
-      birthyear?: number;
-      height?: number;
-      weightStart?: number;
-      weightGoal?: number;
-      bmiStart?: string;
-      bmiGoal?: string;
-      activityProfile?: string;
-    };
-    mergedData: { date: string; poids: number | null; pas: number | null; mood: number | null }[];
-  }>();
+      firstname: string
+      lastname: string
+      birthyear?: number
+      height?: number
+      weightStart?: number
+      weightGoal?: number
+      bmiStart?: string
+      bmiGoal?: string
+    }
+    mergedData: { date: string; poids: number | null; pas: number | null; mood: number | null }[]
+    activities: { numberOfSteps: number; duration: number; consumedCalories: number }[]
+    psychic: { date: string; mood_score: number; feeling: string }[]
+  }>()
 
+  // Âge
   const age = person.birthyear
     ? new Date().getFullYear() - person.birthyear
-    : null;
+    : '-'
+
+  // Stats globales
+  const totalSteps = activities.reduce((s, a) => s + a.numberOfSteps, 0)
+  const totalDur = activities.reduce((s, a) => s + a.duration, 0)
+  const totalCal = activities.reduce((s, a) => s + a.consumedCalories, 0)
+
+  // Données émotionnelles filtrées
+  const emoData = mergedData
+    .filter(d => d.mood !== null)
+    .map(d => ({ date: d.date, score: d.mood! }))
+
+  // Calcul du smiley global
+  const avgMood =
+    emoData.length > 0
+      ? emoData.reduce((sum, d) => sum + d.score, 0) / emoData.length
+      : 0
+  const overallEmoji =
+    avgMood >= 8 ? '😊' :
+    avgMood >= 5 ? '🙂' :
+    avgMood >= 3 ? '😐' :
+    '😞'
+
+  // Données radar
+  const latest = mergedData.slice().reverse()[0]
+  const imc = (latest.poids !== null && person.height)
+    ? latest.poids / ((person.height / 100) ** 2)
+    : 0
+  const recentActs = activities.slice(-10)
+  const avgSteps = recentActs.reduce((s, a) => s + a.numberOfSteps, 0) / (recentActs.length || 1)
+  const avgCal2 = recentActs.reduce((s, a) => s + a.consumedCalories, 0) / (recentActs.length || 1)
+  const radarData = {
+    imc,
+    objectifImc: Number(person.bmiGoal) || 25,
+    pasMoyens: avgSteps,
+    objectifPas: 2000,
+    caloriesBrulees: avgCal2,
+    objectifCalories: 1000,
+    etatPsy: avgMood,
+  }
 
   return (
-    <div className="px-4 py-6 mx-auto space-y-6 text-gray-800 max-w-6xl">
-      
-      {/* TITRE */}
-      <h1 className="text-2xl font-semibold text-white mb-4 text-center">
-        Tableau de bord rapide
-      </h1>
+    <div className="space-y-8">
+      {/* Fil d’Ariane */}
+      <nav className="text-sm text-gray-500 dark:text-gray-400 flex gap-2">
+        <Link to="/patients" className="hover:underline">← Patients</Link>
+        <span>/ Dashboard</span>
+      </nav>
 
-      {/* INFOS PATIENT */}
-      <section className="bg-white rounded-xl shadow-sm p-6 text-gray-800 grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="flex items-center gap-4">
-          <span className="text-4xl">👤</span>
-          <div>
-            <h2 className="text-xl font-bold">
-              {person.firstname} {person.lastname}
-            </h2>
-            {age !== null && <p className="text-gray-600">{age} ans</p>}
+      {/* En-tête patient */}
+      <Card>
+        <div className="flex flex-col md:flex-row items-center md:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-4xl">👤</span>
+            <div>
+              <p className="text-xl font-bold">
+                {person.firstname} {person.lastname}
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {age} ans — {person.height ?? '-'} cm
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Poids init.</p>
+              <p className="font-semibold">{person.weightStart ?? '-'} kg</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Objectif</p>
+              <p className="font-semibold">{person.weightGoal ?? '-'} kg</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">IMC init.</p>
+              <p className="font-semibold">{person.bmiStart ?? '-'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">IMC cible</p>
+              <p className="font-semibold">{person.bmiGoal ?? '-'}</p>
+            </div>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-sm text-gray-600">Taille</p>
-            <p className="font-semibold">{person.height ?? '-'} cm</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-600">Profil d'activité</p>
-            <p className="font-semibold">{getActivityProfileLabel(person.activityProfile)}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-600">Poids initial</p>
-            <p className="font-semibold">{person.weightStart ?? '-'} kg</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-600">Objectif poids</p>
-            <p className="font-semibold">{person.weightGoal ?? '-'} kg</p>
-          </div>
-          <div>
-            <p className="text-xs text-red-600">IMC initial</p>
-            <p className="font-semibold text-red-700">{person.bmiStart ?? '-'}</p>
-          </div>
-          <div>
-            <p className="text-xs text-green-600">IMC cible</p>
-            <p className="font-semibold text-green-700">{person.bmiGoal ?? '-'}</p>
-          </div>
-        </div>
-      </section>
+      </Card>
 
-      {/* GRAPHIQUE */}
-      <div className="w-full h-96 mx-auto">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={mergedData} margin={{ left: 0, right: 0, top: 10, bottom: 30 }}>
-            <XAxis
-              dataKey="date"
-              tick={{ fill: '#6B7280', fontSize: 12 }}
-              angle={-45}
-              textAnchor="end"
-              interval="preserveStartEnd"
-              height={60}
-            />
-            <YAxis tick={{ fill: '#6B7280' }} />
-            <Tooltip contentStyle={{ background: '#fff', borderRadius: 8 }} />
-            <Legend verticalAlign="top" />
-            <Line dataKey="poids" name="Poids (kg)" stroke="#3B82F6" dot={false} />
-            <Line dataKey="pas"   name="Pas"         stroke="#10B981" dot={false} />
-            {mergedData.some((d) => d.mood !== null) && (
-              <Line dataKey="mood" name="Humeur" stroke="#F59E0B" dot={false} />
-            )}
-          </LineChart>
-        </ResponsiveContainer>
+      {/* Statistiques globales */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {[
+          { label: 'Pas total', value: `${Math.round(totalSteps/1000)}k`, icon: '👟' },
+          { label: 'Durée totale', value: `${Math.floor(totalDur/60)}h${totalDur%60}`, icon: '⏱️' },
+          { label: 'Calories brûlées', value: `${totalCal}`, icon: '🔥' },
+        ].map(b => (
+          <Card key={b.label}>
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">{b.icon}</span>
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{b.label}</p>
+                <p className="text-xl font-bold">{b.value}</p>
+              </div>
+            </div>
+          </Card>
+        ))}
       </div>
 
-      {/* NAVIGATION SECTIONS */}
-      <nav className="flex justify-center flex-wrap gap-3">
-        <Link to="infos"     className="btn">Infos Patient</Link>
-        <Link to="activites" className="btn">Activités</Link>
-        <Link to="evolution" className="btn">Évolution</Link>
-        <Link to="emotion"   className="btn">Émotionnel</Link>
-        <Link to="radar"     className="btn">Radar</Link>
-      </nav>
+      {/* Graphique Poids / Pas / Humeur */}
+      <Card>
+        <div className="w-full h-64 sm:h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={mergedData} margin={{ top: 10, right: 20, bottom: 30, left: 0 }}>
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 12, fill: '#6B7280' }}
+                angle={-45}
+                textAnchor="end"
+                height={50}
+                interval="preserveStartEnd"
+              />
+              <YAxis tick={{ fill: '#6B7280' }} />
+              <Tooltip contentStyle={{ background: '#fff', borderRadius: 8 }} />
+              <Legend verticalAlign="top" />
+              <Line dataKey="poids" name="Poids" stroke="#3B82F6" dot={false} />
+              <Line dataKey="pas" name="Pas" stroke="#10B981" dot={false} />
+              <Line dataKey="mood" name="Humeur" stroke="#F59E0B" dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </Card>
+
+      {/* Suivi émotionnel */}
+      <Card>
+        <h3 className="text-lg font-semibold mb-4">Suivi émotionnel</h3>
+        <div className="w-full h-48">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={emoData} margin={{ top: 10, right: 20, bottom: 30, left: 0 }}>
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 12, fill: '#6B7280' }}
+                angle={-45}
+                textAnchor="end"
+                height={50}
+                interval="preserveStartEnd"
+              />
+              <YAxis domain={[0, 10]} tick={{ fill: '#6B7280' }} ticks={[0, 2, 4, 6, 8, 10]} />
+              <Tooltip
+                formatter={(v: number) => `${v}/10`}
+                labelFormatter={l => new Date(l).toLocaleDateString('fr-FR')}
+                contentStyle={{ background: '#fff', borderRadius: 8 }}
+              />
+              <Line dataKey="score" stroke="#F59E0B" strokeWidth={2} dot={{ r: 4 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </Card>
+
+      {/* Vue synthétique (Radar + Emoji) */}
+      <Card>
+        <h3 className="text-lg font-semibold mb-4">Vue synthétique</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+          <div className="text-6xl text-center">{overallEmoji}</div>
+          <div className="w-full h-80">
+            <PatientRadar data={radarData} />
+          </div>
+        </div>
+      </Card>
     </div>
-  );
+  )
 }

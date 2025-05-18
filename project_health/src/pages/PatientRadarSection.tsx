@@ -1,5 +1,6 @@
 // src/pages/PatientRadarSection.tsx
 import { useOutletContext, Link } from 'react-router-dom';
+import Card from '../components/Card';
 import PatientRadar from '../components/PatientRadar';
 
 export default function PatientRadarSection() {
@@ -7,7 +8,7 @@ export default function PatientRadarSection() {
     person: { height?: number; bmiGoal?: string };
     physio: { date: string; weight: number }[];
     activities: { date: string; numberOfSteps: number; consumedCalories: number }[];
-    psychic: { date: string; feeling: string; mood_score: number }[];
+    psychic: { date: string; mood_score: number }[];
   }>();
 
   // IMC
@@ -18,7 +19,7 @@ export default function PatientRadarSection() {
   const taille = (person.height ?? 170) / 100;
   const imc = poids / (taille * taille);
 
-  // 10 dernières humeurs
+  // Moyenne humeur
   const last10 = psychic
     .slice()
     .sort((a, b) => +new Date(b.date) - +new Date(a.date))
@@ -30,7 +31,7 @@ export default function PatientRadarSection() {
   const overallEmoji =
     etatPsy >= 8 ? '😊' : etatPsy >= 5 ? '🙂' : etatPsy >= 3 ? '😐' : '😞';
 
-  // moyennes activités (10 dernières)
+  // Moyennes activités
   const recentActs = activities
     .slice()
     .sort((a, b) => +new Date(b.date) - +new Date(a.date))
@@ -54,23 +55,23 @@ export default function PatientRadarSection() {
   };
 
   return (
-    <div className="p-4 max-w-md mx-auto space-y-6 text-gray-800">
-      <nav className="flex gap-4">
-        <Link to="/patients" className="text-blue-600 hover:underline">
-          ← Liste des patients
+    <div className="space-y-6">
+      <nav className="text-sm text-gray-500 dark:text-gray-400 flex gap-2">
+        <Link to="/patients" className="hover:underline">
+          ← Patients
         </Link>
-        <Link to=".." className="text-blue-600 hover:underline">
-          ← Tableau de bord
-        </Link>
+        <span>/ Dashboard</span>
       </nav>
+      <h2 className="text-2xl font-semibold">Vue synthétique</h2>
 
-      <h2 className="text-2xl font-semibold text-gray-900 text-center">
-        Vue synthétique du patient
-      </h2>
-
-      <div className="text-center text-5xl">{overallEmoji}</div>
-
-      <PatientRadar data={radarData} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <p className="text-5xl text-center">{overallEmoji}</p>
+        </Card>
+        <Card>
+          <PatientRadar data={radarData} />
+        </Card>
+      </div>
     </div>
   );
 }
