@@ -1,6 +1,6 @@
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import api from '../services/api';
+import api, { setAuthToken } from '../services/api';
 import {
   LineChart,
   Line,
@@ -27,7 +27,7 @@ type Person = {
 
 type Physio = { date: string; weight: number };
 type Activity = { date: string; steps: number ; numberOfSteps: number ; duration:number ; consumedCalories:number};
-type Psychic = { date: string; mood_score: number };
+type Psychic = { date: string; mood_score: number ,feeling:string};
 
 interface Merged {
   date: string;
@@ -50,6 +50,16 @@ export default function PatientDetails() {
     async function fetchAll() {
       try {
         // On ne refait pas la requête person si on l'a déjà
+        const auth = localStorage.getItem('auth');
+  if (auth) {
+    const token = JSON.parse(auth).token;
+    console.log(token)
+    setAuthToken(token);
+    
+  }
+  else{
+    console.log("erreur zaid")
+  }
         const reqPerson = person ? null : api.get(`/items/people/${id}`);
 
         const [personRes, physRes, actRes] = await Promise.all([
@@ -185,6 +195,17 @@ export default function PatientDetails() {
           </LineChart>
         </ResponsiveContainer>
       </div>
+      <div className="mb-6">
+  <h2 className="text-secondary font-semibold">Humeurs</h2>
+  {psychic.length === 0 && <p>Aucune donnée d'humeur disponible.</p>}
+  <ul className="list-disc list-inside text-gray-700">
+    {psychic.map((p) => (
+      <li key={p.date}>
+        {p.date} : <strong>{p.feeling}</strong>
+      </li>
+    ))}
+  </ul>
+</div>
     </div>
   );
 }
