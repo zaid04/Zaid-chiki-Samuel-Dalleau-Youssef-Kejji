@@ -109,10 +109,30 @@ export default function PatientDetails() {
     mood: psychic.find((s) => s.date === p.date)?.mood_score ?? null,
   }));
 
+  const moodScoreMap: Record<string, number> = {
+    hopeless: 0,
+    lazy: 2,
+    'losing motivation': 4,
+    enduring: 6,
+    addicted: 8,
+    motivated: 10,
+  };
+
+  const last10Moods = [...psychic]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 10);
+
+  const etatPsy =
+    last10Moods.length === 0
+      ? 0
+      : last10Moods.reduce((sum, mood) => {
+          const score = moodScoreMap[mood.feeling] ?? 0;
+          return sum + score;
+        }, 0) / last10Moods.length;
+
   const totalSteps = activities.reduce((sum, a) => sum + (a.numberOfSteps || 0), 0);
   const totalDuration = activities.reduce((sum, a) => sum + (a.duration || 0), 0);
   const totalCalories = activities.reduce((sum, a) => sum + (a.consumedCalories || 0), 0);
-
 
   const displayName = person ? `${person.firstname} ${person.lastname}` : `#${id}`;
 
@@ -148,7 +168,7 @@ const radarData = {
   caloriesBrulees: caloriesMoyennesBrulees,
   objectifCalories: 1000,
   caloriesAbsorbees: undefined, // Donnée manquante
-  etatPsy: undefined,
+  etatPsy: etatPsy,
 };
 
 
